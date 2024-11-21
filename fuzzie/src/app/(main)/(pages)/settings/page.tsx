@@ -1,46 +1,59 @@
-import ProfileForm from "@/components/forms/profile-form";
-import React from "react";
-import ProfilePicture from "./_components/profile-picture";
-import { db } from "@/lib/db";
+"use client";
+import React, { useEffect, useRef } from "react";
+import * as LR from "@uploadcare/blocks";
+import { useRouter } from "next/navigation";
 
-type Props = {};
+type Props = {
+  onUpload: (e: string) => any;
+};
 
-const settings = (props: Props) => {
-  const removeProfileImage = async () => {
-    'use server'
-    const response = await db.user.update({
-      where: {
-        clerkId: authUser.id,
-      },
-      data: {
-        profileImage: '',
-      },
-    })
-    return response
-  }
+LR.registerBlocks(LR);
+
+const UploadCareButton = ({ onUpload }: Props) => {
+  const router = useRouter();
+  const ctxProviderRef = useRef<
+    typeof LR.UploadCtxProvider.prototype & LR.UploadCtxProvider
+  >(null);
+
+  useEffect(() => {
+    const handleUpload = async (e: any) => {
+      const file = await onUpload(e.detail.cdnUrl);
+      if (file) {
+        router.refresh();
+      }
+    };
+
+    // Add null check before using ctxProviderRef.current
+    if (ctxProviderRef.current) {
+      ctxProviderRef.current.addEventListener(
+        "file-upload-success",
+        handleUpload
+      );
+    }
+
+    // Cleanup listener to avoid memory leaks
+    return () => {
+      if (ctxProviderRef.current) {
+        ctxProviderRef.current.removeEventListener(
+          "file-upload-success",
+          handleUpload
+        );
+      }
+    };
+  }, [onUpload, router]);
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="sticky top-0 z-[10] flex items-center justify-between border-b bg-background/50 p-6 text-4xl backdrop-blur-lg">
-        <span>Settings</span>
-      </h1>
-      <div className="flex flex-col gap-10 p-6">
-        <div>
-          <h2 className="text-2xl font-bold">User Profile</h2>
-          <p className="text-base text-white/50">
-            Add or update your information
-          </p>
-        </div>
-        {/* <ProfilePicture
-          onDelete={removeProfileImage}
-          userImage={user?.profileImage || ""}
-          orUpload={uploadProfileImage}
-        ></ProfilePicture> */}
+    <div>
+      <lr-config ctx-name="my-uploader" pubkey="a9428ff5ff90ae7a64eb" />
 
-        <ProfileForm />
-      </div>
+      <lr-file-uploader-regular
+        ctx-name="my-uploader"
+        css-src={`https://cdn.jsdelivr.net/npm/@uploadcare/blocks@0.35.2/web/lr-file-uploader-regular.min.css`}
+      />
+
+      <lr-upload-ctx-provider ctx-name="my-uploader" ref={ctxProviderRef} />
     </div>
   );
 };
 
-export default settings;
+export default UploadCareButton;
